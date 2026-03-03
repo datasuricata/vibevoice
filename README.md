@@ -8,9 +8,10 @@
 
 Ouça um podcast gerado pelo VibeVoice:
 
-<audio controls src="docs/exemplo-podcast.wav"></audio>
-
-[Download do exemplo (WAV)](docs/exemplo-podcast.wav)
+<audio controls>
+  <source src="https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-podcast.wav" type="audio/wav">
+  Seu navegador não suporta o player. [Baixe o exemplo (WAV)](https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-podcast.wav).
+</audio>
 
 ## Funcionalidades
 
