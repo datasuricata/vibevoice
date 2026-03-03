@@ -1,0 +1,126 @@
+@page "/tts"
+@inject ITtsService TtsService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+
+<PageTitle>TTS - VibeVoice</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h4" Class="mb-4">Text to Speech</MudText>
+    <MudAlert Severity="Severity.Info" Class="mb-4">
+        Powered by <strong>@TtsService.BackendName</strong>.
+        Use commas and ellipses (...) for natural pauses. PT-BR voices recommended for Portuguese text.
+    </MudAlert>
+
+    <MudPaper Class="pa-4 mb-4" Elevation="2">
+        <MudTextField @bind-Value="_text"
+                      Label="Text to convert to speech"
+                      Lines="4"
+                      MaxLength="1000"
+                      HelperText="Max 1000 characters."
+                      Variant="Variant.Outlined"
+                      Class="mb-4" />
+
+        <MudSelect T="string" Value="_language" ValueChanged="OnLanguageChanged" Label="Language"
+                   Variant="Variant.Outlined" Class="mb-3">
+            <MudSelectItem Value="@("pt-BR")">Português (Brasil)</MudSelectItem>
+            <MudSelectItem Value="@("en")">English</MudSelectItem>
+        </MudSelect>
+
+        <MudSelect T="string" @bind-Value="_selectedVoice" Label="Voice" Variant="Variant.Outlined" Class="mb-4">
+            @foreach (var voice in FilteredVoices)
+            {
+                <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudButton Variant="Variant.Filled"
+                   Color="Color.Primary"
+                   OnClick="GenerateAudio"
+                   Disabled="_isGenerating"
+                   StartIcon="@Icons.Material.Filled.RecordVoiceOver"
+                   Size="Size.Large">
+            @(_isGenerating ? "Generating audio..." : "Generate Audio")
+        </MudButton>
+    </MudPaper>
+
+    @if (_isGenerating)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="mb-2" />
+        <MudText Typo="Typo.body2" Align="Align.Center">Synthesizing speech with @TtsService.BackendName...</MudText>
+    }
+
+    @if (_hasAudio)
+    {
+        <MudPaper Class="pa-4" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb-2">Generated Audio</MudText>
+            <audio id="tts-audio" controls class="w-100"></audio>
+        </MudPaper>
+    }
+</MudContainer>
+
+@code {
+    private string _text = "Olá, bem-vindos ao VibeVoice! Este é um demo de síntese de voz com inteligência artificial.";
+    private string _language = "pt-BR";
+    private string _selectedVoice = default!;
+    private bool _isGenerating;
+    private bool _hasAudio;
+    private CancellationTokenSource? _cts;
+
+    private IReadOnlyList<VoiceOption> FilteredVoices =>
+        TtsService.AvailableVoices.Where(v => v.Language == _language).ToList();
+
+    protected override void OnInitialized()
+    {
+        _selectedVoice = FilteredVoices.FirstOrDefault()?.Id ?? TtsService.DefaultVoice;
+    }
+
+    private void OnLanguageChanged(string lang)
+    {
+        _language = lang;
+        var filtered = FilteredVoices;
+        if (filtered.Count > 0 && !filtered.Any(v => v.Id == _selectedVoice))
+            _selectedVoice = filtered[0].Id;
+    }
+
+    private async Task GenerateAudio()
+    {
+        if (string.IsNullOrWhiteSpace(_text))
+        {
+            Snackbar.Add("Please enter some text before generating audio.", Severity.Warning);
+            return;
+        }
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource();
+        _isGenerating = true;
+        _hasAudio = false;
+        StateHasChanged();
+
+        try
+        {
+            var audioBytes = await TtsService.GenerateAudioAsync(_text, _selectedVoice, _cts.Token);
+
+            var base64 = Convert.ToBase64String(audioBytes);
+            _hasAudio = true;
+            StateHasChanged();
+
+            await Task.Delay(50, _cts.Token);
+            await JSRuntime.InvokeVoidAsync("setAudioSrc", _cts.Token, "tts-audio", base64);
+            Snackbar.Add("Audio generated successfully!", Severity.Success);
+        }
+        catch (OperationCanceledException)
+        {
+            Snackbar.Add("Generation cancelled.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isGenerating = false;
+            StateHasChanged();
+        }
+    }
+}

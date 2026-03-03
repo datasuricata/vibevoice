@@ -1,0 +1,66 @@
+@page "/"
+@inject ITtsService TtsService
+
+<PageTitle>VibeVoice - AI Podcast</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h3" Class="mb-2">VibeVoice</MudText>
+    <MudText Typo="Typo.h6" Class="mb-6" Color="Color.Secondary">
+        AI podcast — Gemma 3 writes the script, TTS synthesizes the audio
+    </MudText>
+
+    <MudGrid>
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Primary">
+                            <MudIcon Icon="@Icons.Material.Filled.RecordVoiceOver" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">TTS</MudText>
+                        <MudText Typo="Typo.body2">Text to Speech</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Convert any text to speech. Powered by <strong>@TtsService.BackendName</strong> — PT-BR and English voices.</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Primary" Href="/tts">Open TTS</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+
+        <MudItem xs="12" sm="6">
+            <MudCard>
+                <MudCardHeader>
+                    <CardHeaderAvatar>
+                        <MudAvatar Color="Color.Secondary">
+                            <MudIcon Icon="@Icons.Material.Filled.Podcasts" />
+                        </MudAvatar>
+                    </CardHeaderAvatar>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">Podcast</MudText>
+                        <MudText Typo="Typo.body2">AI Podcast</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    <MudText>Gemma 3 fetches Forbes news, generates a PT-BR script, and <strong>@TtsService.BackendName</strong> synthesizes the audio.</MudText>
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Text" Color="Color.Secondary" Href="/podcast">Generate Podcast</MudButton>
+                </MudCardActions>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <MudDivider Class="my-6" />
+
+    <MudAlert Severity="Severity.Info">
+        <MudText Typo="Typo.body2">
+            <strong>Stack:</strong> .NET Aspire orchestrates Ollama (Gemma 3 1B) + Blazor Server + TTS (@TtsService.BackendName).
+            TTS backend is configurable: Kokoro runs locally with GPU; Azure Speech runs in the cloud.
+        </MudText>
+    </MudAlert>
+</MudContainer>

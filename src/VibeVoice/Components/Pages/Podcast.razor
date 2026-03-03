@@ -1,0 +1,382 @@
+@page "/podcast"
+@inject PodcastGeneratorService PodcastService
+@inject ITtsService TtsService
+@inject NewsScraperService NewsService
+@inject IJSRuntime JSRuntime
+@inject ISnackbar Snackbar
+@implements IDisposable
+
+<PageTitle>Podcast - VibeVoice</PageTitle>
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
+    <MudText Typo="Typo.h4" Class="mb-1">AI Podcast</MudText>
+    <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-5">
+        Gemma 3 fetches Forbes news, generates a PT-BR script, and <strong>@TtsService.BackendName</strong> synthesizes the audio.
+    </MudText>
+
+    @* ── Form ────────────────────────────────────────────── *@
+    <MudPaper Class="pa-4 mb-5" Elevation="2">
+        <MudTextField @bind-Value="_topic"
+                      Label="Podcast topic"
+                      Placeholder="@(_language == "pt-BR" ? "e.g. Últimas notícias de tecnologia e IA" : "e.g. Latest tech and AI news")"
+                      Variant="Variant.Outlined"
+                      Disabled="_isGenerating"
+                      Class="mb-3" />
+
+        <MudSelect T="string" Value="_language" ValueChanged="OnLanguageChanged" Label="Language"
+                   Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-3">
+            <MudSelectItem Value="@("pt-BR")">Português (Brasil)</MudSelectItem>
+            <MudSelectItem Value="@("en")">English</MudSelectItem>
+        </MudSelect>
+
+        <MudSelect T="string" @bind-Value="_selectedVoice" Label="Voice"
+                   Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-4">
+            @foreach (var voice in FilteredVoices)
+            {
+                <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
+            }
+        </MudSelect>
+
+        <div class="d-flex align-center gap-4 mb-4 flex-wrap">
+            <MudSwitch @bind-Value="_streamingMode"
+                       Color="Color.Secondary"
+                       Disabled="_isGenerating"
+                       Label="@(_streamingMode ? "Live mode: plays as it generates" : "Batch mode: generate then play")" />
+        </div>
+
+        <div class="d-flex gap-3 flex-wrap">
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       OnClick="GeneratePodcast"
+                       Disabled="_isGenerating"
+                       StartIcon="@Icons.Material.Filled.Podcasts"
+                       Size="Size.Large">
+                @(_isGenerating ? "Generating..." : "Generate Podcast")
+            </MudButton>
+
+            @if (_isGenerating)
+            {
+                <MudButton Variant="Variant.Outlined"
+                           Color="Color.Error"
+                           OnClick="Cancel"
+                           StartIcon="@Icons.Material.Filled.Stop">
+                    Cancel
+                </MudButton>
+            }
+        </div>
+    </MudPaper>
+
+    @* ── Live pipeline ───────────────────────────────────── *@
+    @if (_showPipeline)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+
+            @* Stage 1 — Scraping *@
+            <div class="d-flex align-center gap-3 mb-3">
+                @if (_stage == PodcastGenerationStage.FetchingNews)
+                {
+                    <MudProgressCircular Size="Size.Small" Color="Color.Primary" Indeterminate="true" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                }
+                <MudText Typo="Typo.subtitle1"><b>1. Forbes scraping</b></MudText>
+                @if (_stage == PodcastGenerationStage.FetchingNews)
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary">fetching news...</MudText>
+                }
+                else
+                {
+                    <MudChip T="string" Label="true" Size="Size.Small" Color="Color.Success">
+                        @_newsItems.Count articles
+                    </MudChip>
+                }
+            </div>
+
+            @if (_newsItems.Count > 0)
+            {
+                <div class="pl-9 mb-4">
+                    @foreach (var item in _newsItems)
+                    {
+                        <div class="d-flex align-center gap-2 mb-1">
+                            <MudChip T="string" Label="true" Size="Size.Small" Color="Color.Info" Class="flex-shrink-0">
+                                @item.Category
+                            </MudChip>
+                            <MudText Typo="Typo.body2">@item.Title</MudText>
+                        </div>
+                    }
+                </div>
+            }
+
+            @* Stage 2 — LLM script *@
+            @if (_stage >= PodcastGenerationStage.GeneratingScript)
+            {
+                <MudDivider Class="mb-3" />
+                <div class="d-flex align-center gap-3 mb-3">
+                    @if (_isGenerating)
+                    {
+                        <MudProgressCircular Size="Size.Small" Color="Color.Secondary" Indeterminate="true" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                    }
+                    <MudText Typo="Typo.subtitle1"><b>2. Gemma 3 generating PT-BR script</b></MudText>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_podcastScript))
+                {
+                    <MudPaper Class="pa-3 ml-9 mb-3" Elevation="0" Style="background:#f5f5f5; border-radius:8px; min-height:60px; max-height:260px; overflow-y:auto;">
+                        <MudText Typo="Typo.body2" Style="white-space:pre-wrap; font-family:monospace;">
+                            @_podcastScript@if (_isGenerating){<span class="blink">▌</span>}
+                        </MudText>
+                    </MudPaper>
+                }
+            }
+
+            @* Stage 3 — TTS synthesis *@
+            @if (_sentencesDone > 0 || _isSynthesizing)
+            {
+                <MudDivider Class="mb-3" />
+                <div class="d-flex align-center gap-3 mb-2">
+                    @if (_isSynthesizing)
+                    {
+                        <MudProgressCircular Size="Size.Small" Color="Color.Tertiary" Indeterminate="true" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
+                    }
+                    <MudText Typo="Typo.subtitle1">
+                        <b>3. @TtsService.BackendName synthesizing audio (PT-BR)</b>
+                    </MudText>
+                    @if (_sentencesDone > 0)
+                    {
+                        <MudChip T="string" Label="true" Size="Size.Small" Color="Color.Tertiary">
+                            @_sentencesDone sentences
+                        </MudChip>
+                    }
+                </div>
+
+                @if (_streamingMode && !string.IsNullOrEmpty(_currentSentence))
+                {
+                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-9">
+                        Now playing: @_currentSentence
+                    </MudText>
+                }
+            }
+        </MudPaper>
+    }
+
+    @* ── Audio player (batch mode only) ─────────────────── *@
+    @if (_hasPodcastAudio && !_streamingMode)
+    {
+        <MudPaper Class="pa-4 mb-4" Elevation="2">
+            <div class="d-flex align-center justify-space-between mb-2">
+                <MudText Typo="Typo.h6">
+                    <MudIcon Icon="@Icons.Material.Filled.PlayCircle" Class="mr-1" /> Audio ready
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.DeleteForever"
+                               Color="Color.Error"
+                               Title="Clear audio"
+                               OnClick="ClearAudio" />
+            </div>
+            <audio id="podcast-audio" controls class="w-100"></audio>
+        </MudPaper>
+    }
+
+    @* ── Clear button (streaming mode) ───────────────────── *@
+    @if (_streamingMode && _sentencesDone > 0 && !_isGenerating)
+    {
+        <MudButton Variant="Variant.Outlined"
+                   Color="Color.Error"
+                   StartIcon="@Icons.Material.Filled.DeleteForever"
+                   OnClick="ClearAudio"
+                   Class="mb-4">
+            Clear audio
+        </MudButton>
+    }
+</MudContainer>
+
+<style>
+    .blink { animation: blink 1s step-end infinite; }
+    @@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+</style>
+
+@code {
+    private string _topic = "Últimas notícias de tecnologia e inteligência artificial";
+    private string _language = "pt-BR";
+    private string _selectedVoice = default!;
+    private bool _streamingMode = true;
+    private bool _isGenerating;
+    private bool _isSynthesizing;
+    private bool _hasPodcastAudio;
+    private bool _showPipeline;
+    private string _podcastScript = string.Empty;
+    private string _currentSentence = string.Empty;
+    private int _sentencesDone;
+    private List<NewsItem> _newsItems = [];
+    private PodcastGenerationStage _stage = PodcastGenerationStage.FetchingNews;
+    private CancellationTokenSource? _cts;
+    private DotNetObjectReference<Podcast>? _dotNetRef;
+
+    private IReadOnlyList<VoiceOption> FilteredVoices =>
+        TtsService.AvailableVoices.Where(v => v.Language == _language).ToList();
+
+    protected override void OnInitialized()
+    {
+        _selectedVoice = FilteredVoices.FirstOrDefault()?.Id ?? TtsService.DefaultVoice;
+    }
+
+    private void OnLanguageChanged(string lang)
+    {
+        _language = lang;
+        var filtered = FilteredVoices;
+        if (filtered.Count > 0 && !filtered.Any(v => v.Id == _selectedVoice))
+            _selectedVoice = filtered[0].Id;
+    }
+
+    [JSInvokable]
+    public void OnQueueEmpty()
+    {
+        // Called by JS when the audio queue is drained
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    private async Task ClearAudio()
+    {
+        await JSRuntime.InvokeVoidAsync("audioQueueClear");
+        _hasPodcastAudio = false;
+        _sentencesDone = 0;
+        _currentSentence = string.Empty;
+        _isSynthesizing = false;
+        StateHasChanged();
+    }
+
+    private async Task GeneratePodcast()
+    {
+        if (string.IsNullOrWhiteSpace(_topic))
+        {
+            Snackbar.Add("Please enter a podcast topic.", Severity.Warning);
+            return;
+        }
+
+        _cts?.Cancel();
+        _cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
+
+        _isGenerating = true;
+        _isSynthesizing = false;
+        _hasPodcastAudio = false;
+        _showPipeline = true;
+        _podcastScript = string.Empty;
+        _currentSentence = string.Empty;
+        _sentencesDone = 0;
+        _newsItems = [];
+        _stage = PodcastGenerationStage.FetchingNews;
+        StateHasChanged();
+
+        try
+        {
+            if (_streamingMode)
+                await RunStreamingPipeline(_cts.Token);
+            else
+                await RunBatchPipeline(_cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            await JSRuntime.InvokeVoidAsync("audioQueueClear");
+            Snackbar.Add("Generation cancelled.", Severity.Info);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Error: {ex.Message}", Severity.Error);
+        }
+        finally
+        {
+            _isGenerating = false;
+            _isSynthesizing = false;
+            StateHasChanged();
+        }
+    }
+
+    // ── Streaming pipeline ────────────────────────────────────────────────────
+    private string GetNarratorName() =>
+        TtsService.AvailableVoices.FirstOrDefault(v => v.Id == _selectedVoice)?.NarratorName
+        ?? _selectedVoice;
+
+    private async Task RunStreamingPipeline(CancellationToken ct)
+    {
+        _dotNetRef?.Dispose();
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JSRuntime.InvokeVoidAsync("audioQueueInit", ct, _dotNetRef);
+
+        var progress = BuildProgress();
+        _isSynthesizing = true;
+
+        await foreach (var (sentence, audio) in
+            PodcastService.GenerateStreamingPodcastAsync(_topic, _selectedVoice, GetNarratorName(), _language, progress, ct))
+        {
+            _currentSentence = sentence;
+            _sentencesDone++;
+            StateHasChanged();
+
+            var base64 = Convert.ToBase64String(audio);
+            await JSRuntime.InvokeVoidAsync("audioQueueEnqueue", ct, base64);
+        }
+
+        _isSynthesizing = false;
+        _currentSentence = string.Empty;
+        StateHasChanged();
+        Snackbar.Add("Podcast generated and playing!", Severity.Success);
+    }
+
+    // ── Batch pipeline ────────────────────────────────────────────────────────
+    private async Task RunBatchPipeline(CancellationToken ct)
+    {
+        var progress = BuildProgress();
+
+        var script = await Task.Run(
+            () => PodcastService.GenerateScriptAsync(_topic, GetNarratorName(), _language, progress, ct), ct);
+
+        _isSynthesizing = true;
+        StateHasChanged();
+
+        var audioBytes = await PodcastService.GeneratePodcastAudioAsync(script, _selectedVoice, ct);
+
+        var base64 = Convert.ToBase64String(audioBytes);
+        _isSynthesizing = false;
+        _hasPodcastAudio = true;
+        StateHasChanged();
+
+        await Task.Delay(80, ct);
+        await JSRuntime.InvokeVoidAsync("setAudioSrc", ct, "podcast-audio", base64);
+        Snackbar.Add("Podcast generated successfully!", Severity.Success);
+    }
+
+    private Progress<PodcastGenerationProgress> BuildProgress() =>
+        new(update =>
+        {
+            _stage = update.Stage;
+
+            switch (update.Stage)
+            {
+                case PodcastGenerationStage.NewsLoaded:
+                    _newsItems = [.. update.NewsItems ?? []];
+                    break;
+                case PodcastGenerationStage.GeneratingScript when update.ScriptChunk is not null:
+                    _podcastScript += update.ScriptChunk;
+                    break;
+            }
+
+            InvokeAsync(StateHasChanged);
+        });
+
+    public void Dispose()
+    {
+        _dotNetRef?.Dispose();
+        _cts?.Cancel();
+    }
+}

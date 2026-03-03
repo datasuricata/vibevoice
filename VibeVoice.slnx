@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/VibeVoice.AppHost/VibeVoice.AppHost.csproj" />
+    <Project Path="src/VibeVoice.ServiceDefaults/VibeVoice.ServiceDefaults.csproj" />
+    <Project Path="src/VibeVoice/VibeVoice.csproj" />
+  </Folder>
+</Solution>
