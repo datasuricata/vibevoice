@@ -25,31 +25,35 @@ public class PodcastGeneratorService(
               "- Descrições de cena entre parênteses como \"(Música de abertura)\" ou \"(Vinheta)\"\n" +
               "- Instruções de produção como \"[música]\", \"[pausa]\", \"[efeito sonoro]\"\n" +
               "- Markdown: asteriscos, hashtags, negrito, itálico, listas, colchetes\n" +
-              "- Títulos de seção ou separadores"
+              "- Títulos de seção ou separadores\n" +
+              "- Símbolos: evite %, $, @, &, #, números digitais, abreviações como \"ex.\", \"p.ex.\", \"etc.\" — use sempre por extenso"
             : "FORBIDDEN — never include:\n" +
               "- Speaker labels like \"Host:\", \"Narrator:\", your name followed by a colon, or any character label\n" +
               "- Scene descriptions in parentheses like \"(Opening music)\" or \"(Jingle)\"\n" +
               "- Production instructions like \"[music]\", \"[pause]\", \"[sound effect]\"\n" +
               "- Markdown: asterisks, hashtags, bold, italic, lists, brackets\n" +
-              "- Section titles or separators";
+              "- Section titles or separators\n" +
+              "- Symbols: avoid %, $, @, &, #, digit numbers, abbreviations like \"e.g.\", \"etc.\" — always spell out";
 
         var required = isPtBr
             ? "OBRIGATÓRIO:\n" +
-              $"- Apresente-se pelo nome no início: use \"{narratorName}\" naturalmente na fala (ex: \"Olá, eu sou {narratorName} e bem-vindos ao VibeVoice!\")\n" +
+              $"- Apresente-se pelo nome no início: use \"{narratorName}\" naturalmente na fala (exemplo: \"Olá, eu sou {narratorName} e bem-vindos ao VibeVoice!\")\n" +
               "- Apenas texto corrido da fala, como uma transcrição literal do que você diz\n" +
               "- Português brasileiro claro e natural\n" +
               "- Frases curtas, no máximo 15 palavras cada\n" +
               "- Use vírgulas e reticências (...) para pausas naturais\n" +
-              "- Números por extenso (\"dois mil e vinte e seis\", nunca \"2026\")\n" +
-              $"- Termine com encerramento natural (ex: \"Aqui é {narratorName}. Até a próxima!\")"
+              "- SEMPRE números por extenso: \"dois mil e vinte e seis\", \"vinte e cinco por cento\", \"três milhões\" — nunca dígitos ou símbolos\n" +
+              "- Narrativa por extenso: use \"por exemplo\", \"porcentagem\", \"e assim por diante\" em vez de abreviações ou símbolos\n" +
+              $"- Termine com encerramento natural (exemplo: \"Aqui é {narratorName}. Até a próxima!\")"
             : "REQUIRED:\n" +
-              $"- Introduce yourself by name at the start: use \"{narratorName}\" naturally (e.g. \"Hi, I'm {narratorName} and welcome to VibeVoice!\")\n" +
+              $"- Introduce yourself by name at the start: use \"{narratorName}\" naturally (example: \"Hi, I'm {narratorName} and welcome to VibeVoice!\")\n" +
               "- Only the spoken text, as a literal transcript of what you say\n" +
               "- Clear, natural English\n" +
               "- Short sentences, max 15 words each\n" +
               "- Use commas and ellipses (...) for natural pauses\n" +
-              "- Numbers spelled out (\"twenty twenty-six\", never \"2026\")\n" +
-              $"- End with a natural closing (e.g. \"This is {narratorName}. See you next time!\")";
+              "- ALWAYS spell out numbers: \"twenty twenty-six\", \"twenty-five percent\", \"three million\" — never digits or symbols\n" +
+              "- Narrative in full: use \"for example\", \"percent\", \"and so on\" instead of abbreviations or symbols\n" +
+              $"- End with a natural closing (example: \"This is {narratorName}. See you next time!\")";
 
         var role = isPtBr
             ? $"Você é {narratorName}, um locutor de podcast brasileiro. Sua única tarefa é gerar o texto exato que você vai falar."
