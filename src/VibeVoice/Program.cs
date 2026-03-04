@@ -80,8 +80,9 @@ app.MapPost("/api/podcast", async (PodcastRequest req, PodcastGeneratorService s
     var voice = req.Voice ?? tts.DefaultVoice;
     var language = req.Language ?? "pt-BR";
     var narratorName = tts.AvailableVoices.FirstOrDefault(v => v.Id == voice)?.NarratorName ?? voice;
-    var script = await svc.GenerateScriptAsync(req.Topic, narratorName, language, progress: null, ct);
-    var audio = await svc.GeneratePodcastAudioAsync(script, voice, ct);
+    var config = new PodcastConfig(req.Topic, language, voice, narratorName);
+    var script = await svc.GenerateScriptAsync(config, progress: null, ct);
+    var audio = await svc.GeneratePodcastAudioAsync(script, config, ct);
     return Results.File(audio, "audio/wav", "podcast.wav");
 });
 

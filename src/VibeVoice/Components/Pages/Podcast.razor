@@ -11,7 +11,7 @@
 <MudContainer MaxWidth="MaxWidth.Medium" Class="mt-6">
     <MudText Typo="Typo.h4" Class="mb-1">AI Podcast</MudText>
     <MudText Typo="Typo.body1" Color="Color.Secondary" Class="mb-5">
-        Gemma 3 fetches Forbes news, generates a PT-BR script, and <strong>@TtsService.BackendName</strong> synthesizes the audio.
+        Gemma 3 fetches Forbes news, generates a script, and <strong>@TtsService.BackendName</strong> synthesizes the audio.
     </MudText>
 
     @* ── Form ────────────────────────────────────────────── *@
@@ -24,18 +24,63 @@
                       Class="mb-3" />
 
         <MudSelect T="string" Value="_language" ValueChanged="OnLanguageChanged" Label="Language"
-                   Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-3">
+                   Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-4">
             <MudSelectItem Value="@("pt-BR")">Português (Brasil)</MudSelectItem>
             <MudSelectItem Value="@("en")">English</MudSelectItem>
         </MudSelect>
 
-        <MudSelect T="string" @bind-Value="_selectedVoice" Label="Voice"
-                   Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-4">
-            @foreach (var voice in FilteredVoices)
-            {
-                <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
-            }
-        </MudSelect>
+        @* ── Number of hosts ── *@
+        <MudText Typo="Typo.body2" Class="mb-2" Style="font-weight:500;">
+            @(_language == "pt-BR" ? "Número de locutores" : "Number of hosts")
+        </MudText>
+        <MudButtonGroup Variant="Variant.Outlined" Class="mb-4">
+            <MudButton Color="@(!_dialogMode ? Color.Primary : Color.Default)"
+                       Variant="@(!_dialogMode ? Variant.Filled : Variant.Outlined)"
+                       StartIcon="@Icons.Material.Filled.Person"
+                       Disabled="_isGenerating"
+                       OnClick="@(() => SetDialogMode(false))">
+                @(_language == "pt-BR" ? "1 Locutor" : "1 Host")
+            </MudButton>
+            <MudButton Color="@(_dialogMode ? Color.Primary : Color.Default)"
+                       Variant="@(_dialogMode ? Variant.Filled : Variant.Outlined)"
+                       StartIcon="@Icons.Material.Filled.People"
+                       Disabled="_isGenerating"
+                       OnClick="@(() => SetDialogMode(true))">
+                @(_language == "pt-BR" ? "2 Locutores" : "2 Hosts")
+            </MudButton>
+        </MudButtonGroup>
+
+        @* ── Voice selection ── *@
+        @if (_dialogMode)
+        {
+            <div class="d-flex gap-3 mb-4 flex-wrap">
+                <MudSelect T="string" @bind-Value="_selectedVoice" Label="@(_language == "pt-BR" ? "Locutor 1" : "Host 1")"
+                           Variant="Variant.Outlined" Disabled="_isGenerating" Style="flex:1; min-width:200px;">
+                    @foreach (var voice in FilteredVoices)
+                    {
+                        <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+
+                <MudSelect T="string" @bind-Value="_selectedVoice2" Label="@(_language == "pt-BR" ? "Locutor 2" : "Host 2")"
+                           Variant="Variant.Outlined" Disabled="_isGenerating" Style="flex:1; min-width:200px;">
+                    @foreach (var voice in FilteredVoices)
+                    {
+                        <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
+                    }
+                </MudSelect>
+            </div>
+        }
+        else
+        {
+            <MudSelect T="string" @bind-Value="_selectedVoice" Label="@(_language == "pt-BR" ? "Voz" : "Voice")"
+                       Variant="Variant.Outlined" Disabled="_isGenerating" Class="mb-4">
+                @foreach (var voice in FilteredVoices)
+                {
+                    <MudSelectItem Value="@voice.Id">@voice.DisplayName</MudSelectItem>
+                }
+            </MudSelect>
+        }
 
         <div class="d-flex align-center gap-4 mb-4 flex-wrap">
             <MudSwitch @bind-Value="_streamingMode"
@@ -48,7 +93,7 @@
             <MudButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        OnClick="GeneratePodcast"
-                       Disabled="_isGenerating"
+                       Disabled="@(_isGenerating || (_dialogMode && _selectedVoice == _selectedVoice2))"
                        StartIcon="@Icons.Material.Filled.Podcasts"
                        Size="Size.Large">
                 @(_isGenerating ? "Generating..." : "Generate Podcast")
@@ -64,6 +109,15 @@
                 </MudButton>
             }
         </div>
+
+        @if (_dialogMode && _selectedVoice == _selectedVoice2)
+        {
+            <MudText Typo="Typo.caption" Color="Color.Warning" Class="mt-2">
+                @(_language == "pt-BR"
+                    ? "Selecione vozes diferentes para os dois locutores."
+                    : "Please select different voices for each host.")
+            </MudText>
+        }
     </MudPaper>
 
     @* ── Live pipeline ───────────────────────────────────── *@
@@ -122,7 +176,9 @@
                     {
                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
                     }
-                    <MudText Typo="Typo.subtitle1"><b>2. Gemma 3 generating PT-BR script</b></MudText>
+                    <MudText Typo="Typo.subtitle1">
+                        <b>2. Gemma 3 generating @(_dialogMode ? "dialogue" : "PT-BR") script</b>
+                    </MudText>
                 </div>
 
                 @if (!string.IsNullOrEmpty(_podcastScript))
@@ -149,7 +205,7 @@
                         <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" />
                     }
                     <MudText Typo="Typo.subtitle1">
-                        <b>3. @TtsService.BackendName synthesizing audio (PT-BR)</b>
+                        <b>3. @TtsService.BackendName synthesizing audio</b>
                     </MudText>
                     @if (_sentencesDone > 0)
                     {
@@ -161,9 +217,20 @@
 
                 @if (_streamingMode && !string.IsNullOrEmpty(_currentSentence))
                 {
-                    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="ml-9">
-                        Now playing: @_currentSentence
-                    </MudText>
+                    <div class="ml-9 d-flex align-center gap-2">
+                        @if (_dialogMode && !string.IsNullOrEmpty(_currentSpeakerId))
+                        {
+                            var speakerVoice = _currentSpeakerId == "host1" ? _selectedVoice : _selectedVoice2;
+                            var speakerName = GetNarratorName(speakerVoice);
+                            <MudChip T="string" Label="true" Size="Size.Small"
+                                     Color="@(_currentSpeakerId == "host1" ? Color.Primary : Color.Secondary)">
+                                @speakerName
+                            </MudChip>
+                        }
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            Now playing: @_currentSentence
+                        </MudText>
+                    </div>
                 }
             }
         </MudPaper>
@@ -208,6 +275,8 @@
     private string _topic = "Últimas notícias de tecnologia e inteligência artificial";
     private string _language = "pt-BR";
     private string _selectedVoice = default!;
+    private string _selectedVoice2 = default!;
+    private bool _dialogMode;
     private bool _streamingMode = true;
     private bool _isGenerating;
     private bool _isSynthesizing;
@@ -215,6 +284,7 @@
     private bool _showPipeline;
     private string _podcastScript = string.Empty;
     private string _currentSentence = string.Empty;
+    private string _currentSpeakerId = string.Empty;
     private int _sentencesDone;
     private List<NewsItem> _newsItems = [];
     private PodcastGenerationStage _stage = PodcastGenerationStage.FetchingNews;
@@ -226,7 +296,9 @@
 
     protected override void OnInitialized()
     {
-        _selectedVoice = FilteredVoices.FirstOrDefault()?.Id ?? TtsService.DefaultVoice;
+        var filtered = FilteredVoices;
+        _selectedVoice = filtered.FirstOrDefault()?.Id ?? TtsService.DefaultVoice;
+        _selectedVoice2 = filtered.Count > 1 ? filtered[1].Id : _selectedVoice;
     }
 
     private void OnLanguageChanged(string lang)
@@ -235,12 +307,27 @@
         var filtered = FilteredVoices;
         if (filtered.Count > 0 && !filtered.Any(v => v.Id == _selectedVoice))
             _selectedVoice = filtered[0].Id;
+        if (filtered.Count > 1 && !filtered.Any(v => v.Id == _selectedVoice2))
+            _selectedVoice2 = filtered[1].Id;
+        else if (filtered.Count == 1)
+            _selectedVoice2 = filtered[0].Id;
+    }
+
+    private void SetDialogMode(bool value)
+    {
+        _dialogMode = value;
+        // Ensure the two voices are different when switching to dialogue mode
+        if (_dialogMode && _selectedVoice == _selectedVoice2)
+        {
+            var filtered = FilteredVoices;
+            var alt = filtered.FirstOrDefault(v => v.Id != _selectedVoice);
+            if (alt is not null) _selectedVoice2 = alt.Id;
+        }
     }
 
     [JSInvokable]
     public void OnQueueEmpty()
     {
-        // Called by JS when the audio queue is drained
         InvokeAsync(StateHasChanged);
     }
 
@@ -252,6 +339,7 @@
         _hasPodcastAudio = false;
         _sentencesDone = 0;
         _currentSentence = string.Empty;
+        _currentSpeakerId = string.Empty;
         _isSynthesizing = false;
         StateHasChanged();
     }
@@ -264,6 +352,14 @@
             return;
         }
 
+        if (_dialogMode && _selectedVoice == _selectedVoice2)
+        {
+            Snackbar.Add(_language == "pt-BR"
+                ? "Selecione vozes diferentes para os dois locutores."
+                : "Please select different voices for each host.", Severity.Warning);
+            return;
+        }
+
         _cts?.Cancel();
         _cts = new CancellationTokenSource(TimeSpan.FromMinutes(15));
 
@@ -273,6 +369,7 @@
         _showPipeline = true;
         _podcastScript = string.Empty;
         _currentSentence = string.Empty;
+        _currentSpeakerId = string.Empty;
         _sentencesDone = 0;
         _newsItems = [];
         _stage = PodcastGenerationStage.FetchingNews;
@@ -302,10 +399,17 @@
         }
     }
 
+    // ── Config builder ────────────────────────────────────────────────────────
+
+    private string GetNarratorName(string voiceId) =>
+        TtsService.AvailableVoices.FirstOrDefault(v => v.Id == voiceId)?.NarratorName ?? voiceId;
+
+    private PodcastConfig BuildConfig() => _dialogMode
+        ? new PodcastConfig(_topic, _language, _selectedVoice, GetNarratorName(_selectedVoice),
+                            _selectedVoice2, GetNarratorName(_selectedVoice2))
+        : new PodcastConfig(_topic, _language, _selectedVoice, GetNarratorName(_selectedVoice));
+
     // ── Streaming pipeline ────────────────────────────────────────────────────
-    private string GetNarratorName() =>
-        TtsService.AvailableVoices.FirstOrDefault(v => v.Id == _selectedVoice)?.NarratorName
-        ?? _selectedVoice;
 
     private async Task RunStreamingPipeline(CancellationToken ct)
     {
@@ -313,13 +417,15 @@
         _dotNetRef = DotNetObjectReference.Create(this);
         await JSRuntime.InvokeVoidAsync("audioQueueInit", ct, _dotNetRef);
 
+        var config = BuildConfig();
         var progress = BuildProgress();
         _isSynthesizing = true;
 
-        await foreach (var (sentence, audio) in
-            PodcastService.GenerateStreamingPodcastAsync(_topic, _selectedVoice, GetNarratorName(), _language, progress, ct))
+        await foreach (var (sentence, audio, speakerId) in
+            PodcastService.GenerateStreamingPodcastAsync(config, progress, ct))
         {
             _currentSentence = sentence;
+            _currentSpeakerId = speakerId;
             _sentencesDone++;
             StateHasChanged();
 
@@ -329,22 +435,25 @@
 
         _isSynthesizing = false;
         _currentSentence = string.Empty;
+        _currentSpeakerId = string.Empty;
         StateHasChanged();
         Snackbar.Add("Podcast generated and playing!", Severity.Success);
     }
 
     // ── Batch pipeline ────────────────────────────────────────────────────────
+
     private async Task RunBatchPipeline(CancellationToken ct)
     {
+        var config = BuildConfig();
         var progress = BuildProgress();
 
         var script = await Task.Run(
-            () => PodcastService.GenerateScriptAsync(_topic, GetNarratorName(), _language, progress, ct), ct);
+            () => PodcastService.GenerateScriptAsync(config, progress, ct), ct);
 
         _isSynthesizing = true;
         StateHasChanged();
 
-        var audioBytes = await PodcastService.GeneratePodcastAudioAsync(script, _selectedVoice, ct);
+        var audioBytes = await PodcastService.GeneratePodcastAudioAsync(script, config, ct);
 
         var base64 = Convert.ToBase64String(audioBytes);
         _isSynthesizing = false;
