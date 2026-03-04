@@ -6,17 +6,25 @@
 
 ## Exemplo de áudio
 
-Ouça um podcast gerado pelo VibeVoice:
+Ouça um podcast gerado pelo VibeVoice (um locutor):
 
 <audio controls>
   <source src="https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-podcast.wav" type="audio/wav">
   Seu navegador não suporta o player. [Baixe o exemplo (WAV)](https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-podcast.wav).
 </audio>
 
+**Exemplo com dois locutores** — diálogo entre dois hosts com vozes diferentes:
+
+<audio controls>
+  <source src="https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-locutores-podcast.wav" type="audio/wav">
+  Seu navegador não suporta o player. [Baixe o exemplo (WAV)](https://raw.githubusercontent.com/datasuricata/vibevoice/main/docs/exemplo-locutores-podcast.wav).
+</audio>
+
 ## Funcionalidades
 
 - **TTS (Text to Speech)** — Converte qualquer texto em áudio com vozes PT-BR e inglês
 - **Podcast AI** — Busca notícias do Forbes, gera roteiro com Gemma 3 e sintetiza o áudio
+- **Um ou dois locutores** — Modo solo (um host) ou diálogo (dois hosts interagindo com vozes diferentes)
 - **Modo live** — Áudio começa a tocar enquanto o roteiro ainda está sendo gerado
 - **Idiomas** — Selecione PT-BR ou English; as vozes disponíveis mudam conforme o idioma
 - **TTS configurável** — Kokoro (local, GPU) ou Azure Speech (nuvem)
@@ -51,8 +59,8 @@ O dashboard do Aspire exibe o estado de cada recurso:
 ## Geração de podcast
 
 1. **Forbes scraping** — Carrega as últimas notícias
-2. **Gemma 3** — Gera o roteiro em PT-BR ou inglês
-3. **TTS** — Sintetiza o áudio com a voz escolhida
+2. **Gemma 3** — Gera o roteiro em PT-BR ou inglês (solo ou diálogo entre dois locutores)
+3. **TTS** — Sintetiza o áudio com a(s) voz(es) escolhida(s)
 
 ![Podcast Generation](docs/podcast-generation.png)
 
